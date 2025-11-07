@@ -1,0 +1,28 @@
+__pycache__/
+*.pyc
+.env
+data/index.html
+data/*.parquet
+.env*
+.ipynb_checkpoints/
+
+# Virtualenvs
+.venv/
+venv/
+
+# Mac
+.DS_Store
+
+# Build / packaging
+*.egg-info/
+
+# Large experiment artifacts (keep small summaries, ignore big binaries/logs)
+experiments/*.parquet
+experiments/*.zip
+experiments/*.log
+experiments/*.pid
+experiments/backup_*/
+
+# Personal editor settings
+.vscode/
+.idea/

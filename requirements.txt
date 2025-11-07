@@ -1,0 +1,10 @@
+pandas>=1.5
+numpy>=1.24
+scikit-learn
+lightgbm
+requests
+beautifulsoup4
+matplotlib
+pyarrow
+darts
+tqdm
