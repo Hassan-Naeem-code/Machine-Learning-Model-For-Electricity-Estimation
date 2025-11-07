@@ -1,4 +1,4 @@
-# MachineLearningModel — submission-ready repository
+# MachineLearningModel — repository
 
 This repository contains the per-asset LightGBM forecasting baseline and supporting scripts used for the assignment.
 
