@@ -26,3 +26,7 @@ experiments/backup_*/
 # Personal editor settings
 .vscode/
 .idea/
+
+# Ignore full data and experiments directories (large, generated)
+data/
+experiments/
