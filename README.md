@@ -1,86 +1,71 @@
-# MachineLearningModel — repository
+# Per-Asset LightGBM Forecasting
 
-This repository contains the per-asset LightGBM forecasting baseline and supporting scripts used for the assignment.
+Per-asset gradient-boosted forecasting models for 15-minute-resolution OHLCV data. Trains one LightGBM model per asset, predicts 1–10 step horizons for high / low / close / volume, and produces evaluation summaries.
 
-Quick status
-- Most processing was run locally and produced experiment artifacts under `experiments/`.
-- Large logs, parquet files and intermediate artifacts have been moved to a timestamped backup under `experiments/backup_*` to keep the Git working copy small and pushable.
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
+![LightGBM](https://img.shields.io/badge/LightGBM-gradient_boosting-006aa7)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-What I included in the repo (cleaned for push)
-- Source code: `src/` (training and retrain scripts)
-- Small summaries and the final report: `experiments/FINAL_REPORT.md`, `experiments/per_asset_lgbm_results_summary_postproc.csv`, `experiments/per_asset_lgbm_results_worst20.csv`
-- A submission package (if present) was moved to backup to avoid committing large binaries — see `experiments/backup_*`.
+## What it does
 
-# MachineLearningModel — Per-asset forecasting (submission-ready)
+- Trains a **separate LightGBM model per asset** to avoid cross-asset leakage and let hyperparameters adapt to each asset's volatility profile.
+- Forecasts **H = 1..10** future steps at **15-minute resolution** for each of `high`, `low`, `close`, and `volume`.
+- Supports **incremental retraining** from a checkpoint rather than full re-fits.
+- Produces compact CSV summaries and a markdown final report instead of leaving large artifacts in git.
 
-This repository contains code and small summary artifacts for the per-asset LightGBM forecasting assignment. Large experiment outputs and logs were moved to timestamped backups under `experiments/backup_*` so this repository is small and ready to push.
+## Why per-asset
 
-Contents
-- `src/` — training and retrain scripts, helpers
-- `data/` — (not committed) asset parquet files; keep these out of git if large
-- `notebooks/` — exploratory notebooks (if present)
-- `experiments/` — small summaries and `FINAL_REPORT.md`. Large artifacts are in `experiments/backup_*`.
+A single global model averages behavior across assets with very different volatility, liquidity, and regime characteristics. Per-asset models:
 
-Purpose
-- Train LightGBM per-asset models to forecast H=1..10 (15-minute resolution) for features high/low/close/volume.
-- Evaluate models with sMAPE and produce per-asset diagnostics.
+- Keep feature importances interpretable for a single asset's traders.
+- Avoid silent degradation when a new asset with unusual behavior is added.
+- Let hyperparameters and feature pipelines evolve independently.
 
-Status (cleaned for submission)
-- Source code: `src/` — included
-- Committed summaries: `experiments/per_asset_lgbm_results_summary_postproc.csv`, `experiments/per_asset_lgbm_results_worst20.csv`, `experiments/FINAL_REPORT.md`
-- Large outputs (parquet, full logs, large zips) moved to `experiments/backup_*` and are NOT committed to Git.
+Tradeoff: more models to store and retrain. The retrain script keeps this manageable.
 
-Requirements
-- Python 3.10+ (project used Python 3.14 locally)
-- See `requirements.txt` for required packages (pandas, numpy, scikit-learn, lightgbm, etc.)
-
-Quick setup
-1. Create and activate a virtual environment:
+## Quick start
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
+git clone https://github.com/Hassan-Naeem-code/Machine-Learning-Model-For-Electricity-Estimation.git
+cd Machine-Learning-Model-For-Electricity-Estimation
+
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# Training — point at your parquet data dir (not committed)
+python src/train.py --data-dir data/ --out experiments/
+
+# Retrain a single asset from checkpoint
+python src/retrain.py --asset ASSET_ID --data-dir data/
 ```
 
-2. Smoke test (fast):
+## Repository layout
 
-```bash
-export HORIZON=10 NUM_BOOST_ROUND=10 USE_CLASSIFIER=1 FEATURES=high,low,close,volume MAX_ASSETS=2
-.venv/bin/python src/lightgbm_per_asset_baseline.py
+```
+.
+├── src/                    # training + retraining scripts, feature helpers
+├── data/                   # (not committed) OHLCV parquet files per asset
+├── experiments/
+│   ├── FINAL_REPORT.md                                  # summary of results
+│   ├── per_asset_lgbm_results_summary_postproc.csv      # aggregated metrics
+│   └── per_asset_lgbm_results_worst20.csv               # bottom-20 assets for diagnosis
+├── tests/
+├── requirements.txt
+└── README.md
 ```
 
-Full retrain (notes)
-- The full retrain (`src/retrain_and_forecast.py`) is computationally expensive and may run for many hours depending on `NUM_BOOST_ROUND` and the number of assets.
-- Recommended safe settings to avoid multiprocessing crashes:
+Large experiment outputs (logs, intermediate parquet, model binaries) are kept out of git. If you need to reproduce a specific run, see `experiments/FINAL_REPORT.md` for configuration and metrics.
 
-```bash
-export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 N_WORKERS=1 NUM_BOOST_ROUND=300 HORIZON=10 USE_CLASSIFIER=1
-.venv/bin/python src/retrain_and_forecast.py
-```
+## Results (summary)
 
-Outputs (where to find them)
-- Committed small summaries and the final report:
-	- `experiments/per_asset_lgbm_results_summary_postproc.csv`
-	- `experiments/per_asset_lgbm_results_worst20.csv`
-	- `experiments/FINAL_REPORT.md`
-- Full forecasts, large CSVs and logs: `experiments/backup_*/` (do not push these by default)
+The full evaluation is in [`experiments/FINAL_REPORT.md`](experiments/FINAL_REPORT.md). Per-horizon and per-asset error metrics live in `experiments/per_asset_lgbm_results_summary_postproc.csv`. The worst-performing 20 assets are broken out in `experiments/per_asset_lgbm_results_worst20.csv` so model failures can be inspected in isolation.
 
-Known issues and notes
-- A previous retrain attempt crashed with a multiprocessing BrokenPipeError; retrains were restarted with N_WORKERS=1 and single-thread BLAS to avoid repeated crashes (safer but slower).
-- If you require full forecasts for grading, retrieve them from the backup folder and upload separately (do not add large binaries to the Git repo).
+## Reproducing
 
-How to prepare the repository for submission (recommended)
-1. Stop any long-running jobs on your machine.
-2. Keep `experiments/` and large binaries out of Git (`.gitignore` already configured).
-3. Upload `experiments/submission_package_final.zip` to your submission portal and push the cleaned repo (source + README + small summaries).
+1. Place asset-level OHLCV parquet files in `data/` (one file per asset, 15-minute rows).
+2. Run `python src/train.py --data-dir data/` to produce per-asset models under `experiments/`.
+3. Run the evaluation step (`src/evaluate.py` or the notebook under `notebooks/`, if present) to regenerate the summary CSVs.
 
-Minimal `.gitignore` entries (applied)
-- `.venv/`
-- `experiments/`
-- `*.parquet`
-- `*.log`
-- `*.pid`
-- `.DS_Store
+## License
 
-If you want any changes to the README (more detail, CI, or automated scripts), tell me which sections to expand and I will update it immediately.
+MIT
